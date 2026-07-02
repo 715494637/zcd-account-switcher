@@ -2,6 +2,18 @@
 
 基于 Electron 的 ZCode 账号管理工具。支持多账号凭证导入、一键切号、额度查询，无需反代，直接写入本地配置文件。
 
+## 使用展示
+
+<p align="center">
+  <img src="assets/img1.png" alt="账号池主界面" width="720" />
+</p>
+
+<p align="center">
+  <img src="assets/img2.jpg" alt="额度查看 & 切号" width="720" />
+</p>
+
+---
+
 ## 功能
 
 - **多账号管理** — 导入 JSON 凭证或卡密（ZC1.xxx 格式）
