@@ -1,0 +1,62 @@
+# 发布版（客户版）打包配置 —— 不含 dev 注册机
+# 用法: npm run build:release
+appId: com.zcd.switcher
+productName: zcd-switcher
+copyright: Copyright © 2026
+
+directories:
+  output: dist/release
+  buildResources: build
+
+# 体积优化：只保留中英文 locale（裁掉 ~38MB 其它语言包）
+electronLanguages: [en-US, zh-CN]
+# afterPack hook：删除 LICENSES.chromium.html (~8.7MB)
+afterPack: build/after-pack.js
+# 安装包最大压缩
+compression: maximum
+
+# asar 内只打包运行所需的客户端代码；dev/ 与 data/ 一律排除
+files:
+  - main.js
+  - preload.js
+  - renderer/**/*
+  - package.json
+  - "!dev/**/*"
+  - "!data/**/*"
+  - "!src/**/*"
+  - "!build/**/*"
+  - "!*.yml"
+  - "!nul"
+
+# extraResources：从 desktop 自包含的 src/ 复制，不再跨到 ../
+extraResources:
+  - from: src
+    to: app-src
+    filter:
+      - "switcher/**/*"
+      - "tools/**/*"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: assets/icon.ico
+  artifactName: zcd-switcher-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: zcd-switcher
+  installerLanguages: [zh_CN]
+  language: "2052"
+
+portable:
+  artifactName: zcd-switcher-${version}-portable.${ext}
+
+# 不发布到自动更新服务器（手动上传 Release）
+publish: null

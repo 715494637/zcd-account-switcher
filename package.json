@@ -1,0 +1,21 @@
+{
+  "name": "zcode-switcher-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ZCode 切号器 - 桌面版（非反代，导入凭证切号 + 额度/福利查看）",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "dev": "cross-env SWITCHER_DEVTOOLS=1 electron .",
+    "build:release": "electron-builder --config build-release.yml",
+    "build:dev": "node -e \"require('fs').writeFileSync('dev/.enabled','')\" && electron-builder --config build-dev.yml"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.35.2",
+    "ssh2": "^1.17.0"
+  }
+}
