@@ -92,6 +92,8 @@ function renderCards() {
   box.querySelectorAll("[data-use]").forEach((b) => b.onclick = () => doUse(b.dataset.use));
   box.querySelectorAll("[data-q]").forEach((b) => b.onclick = () => loadQuota(b.dataset.q));
   box.querySelectorAll("[data-del]").forEach((b) => b.onclick = () => doDelete([b.dataset.del]));
+  // 额度查询失败时的单账号重试按钮
+  box.querySelectorAll("[data-retry]").forEach((b) => b.onclick = () => loadQuota(b.dataset.retry));
   box.querySelectorAll(".card-check").forEach((c) => c.onchange = () => {
     c.checked ? S.selected.add(c.dataset.sel) : S.selected.delete(c.dataset.sel);
     updateSelbar();
@@ -127,7 +129,7 @@ function cardHtml(a) {
       </div>
       <div class="spacer"></div>${badge}
     </div>
-    <div class="quota-area" id="qa-${esc(a.id)}">${q ? quotaHtml(q) : '<span class="q-loading">点 ↻ 查额度</span>'}</div>
+    <div class="quota-area" id="qa-${esc(a.id)}">${q ? quotaHtml(q, a.id) : '<span class="q-loading">点 ↻ 查额度</span>'}</div>
     <div class="card-actions">
       <button class="btn btn-primary btn-sm" data-use="${esc(a.id)}" ${a.usable ? "" : "disabled"}>切到此号</button>
       <div class="spacer"></div>
@@ -137,8 +139,9 @@ function cardHtml(a) {
   </div>`;
 }
 
-function quotaHtml(q) {
-  if (q.__err) return `<span class="q-err">查询失败</span>`;
+function quotaHtml(q, id) {
+  if (q.__err) return `<span class="q-err">查询失败</span>`
+    + (id ? `<button class="btn btn-sm q-retry" data-retry="${esc(id)}" style="margin-left:6px;padding:2px 8px;font-size:11px;opacity:.85">↻ 重试</button>` : "");
   if (!q.has_grant) return `<span class="q-err">福利已结束</span>`;
   const rows = (q.models || []).map((m) => {
     const p = pct(m.remaining_units, m.total_units);
@@ -160,7 +163,7 @@ async function loadQuota(id) {
   if (qa) qa.innerHTML = '<span class="q-loading"><span class="spin"></span> 查询中</span>';
   const r = await api.quota(id);
   S.quotas[id] = r.ok ? r.data : { __err: r.error };
-  if (qa) qa.innerHTML = quotaHtml(S.quotas[id]);
+  if (qa) qa.innerHTML = quotaHtml(S.quotas[id], id);
 }
 async function refreshAllQuota() {
   const ids = filtered().filter((a) => a.usable).map((a) => a.id);
@@ -178,7 +181,7 @@ async function refreshAllQuota() {
     if (r.ok) {
       for (const [id, res] of Object.entries(r.data)) {
         S.quotas[id] = res.ok ? res.data : { __err: res.error };
-        const qa = $("qa-" + id); if (qa) qa.innerHTML = quotaHtml(S.quotas[id]);
+        const qa = $("qa-" + id); if (qa) qa.innerHTML = quotaHtml(S.quotas[id], id);
       }
     }
     done += slice.length;
@@ -490,6 +493,15 @@ $("regCopyBtn").onclick = async () => {
   if (!r.ok) { toast(r.error, "err"); return; }
   if (!r.data.count) { toast("没有可复制的号", "err"); return; }
   await navigator.clipboard.writeText(r.data.text); toast(`已复制 ${r.data.count} 张卡密`);
+};
+$("regExportBtn").onclick = async () => {
+  const r = await api.regCards(regIds());
+  if (!r.ok) { toast(r.error, "err"); return; }
+  if (!r.data.count) { toast("没有可导出的号", "err"); return; }
+  const sr = await api.saveCardsFile(r.data.text);
+  if (sr.canceled) return;
+  if (!sr.ok) { toast(sr.error, "err"); return; }
+  toast(`已导出 ${r.data.count} 张到 ${sr.data.path}`);
 };
 $("regImportBtn").onclick = async () => {
   const ids = regIds();

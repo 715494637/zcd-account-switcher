@@ -5,7 +5,20 @@
  * 逻辑复刻自 main.js fetchAccountQuota：合并 billing/current(授权额度) + billing/balance(实际用量)。
  */
 
+const os = require("os");
 const ZCODE_APP_VERSION = process.env.ZCODE_APP_VERSION || "3.1.5";
+
+/**
+ * 动态获取当前平台标识，供 billing API 的 platform 参数使用。
+ * Windows → win32-x64, macOS arm → darwin-arm64, macOS x86 → darwin-x64, Linux → linux-x64
+ */
+function getPlatform() {
+  const p = process.platform;
+  const a = process.arch;
+  if (p === "darwin") return a === "arm64" ? "darwin-arm64" : "darwin-x64";
+  if (p === "linux")  return a === "arm64" ? "linux-arm64" : "linux-x64";
+  return "win32-x64";
+}
 
 function billingHeaders(account) {
   return {
@@ -70,9 +83,10 @@ async function fetchQuota(account) {
   const currentUrl = account.billing_current_url || `${apiBase}/zcode-plan/billing/current`;
   const headers = billingHeaders(account);
 
+  const platform = getPlatform();
   const [balanceRes, currentRes] = await Promise.allSettled([
-    fetchJson(balanceUrl + "?app_version=" + ZCODE_APP_VERSION + "&platform=win32-x64", headers),
-    fetchJson(currentUrl + "?app_version=" + ZCODE_APP_VERSION + "&platform=win32-x64", headers),
+    fetchJson(balanceUrl + "?app_version=" + ZCODE_APP_VERSION + "&platform=" + platform, headers),
+    fetchJson(currentUrl + "?app_version=" + ZCODE_APP_VERSION + "&platform=" + platform, headers),
   ]);
 
   const byKey = new Map();

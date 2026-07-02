@@ -45,6 +45,16 @@ win:
   icon: assets/icon.ico
   artifactName: zcd-switcher-${version}-${arch}.${ext}
 
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  icon: assets/icon-256.png
+  artifactName: zcd-switcher-${version}-${arch}.${ext}
+  category: public.app-category.utilities
+
 nsis:
   oneClick: false
   perMachine: false

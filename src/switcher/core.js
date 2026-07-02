@@ -14,7 +14,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { exec, execSync } = require("child_process");
+const { exec, execSync, spawn } = require("child_process");
 const {
   extractState,
   synthesizeCredentials,
@@ -91,6 +91,18 @@ function findZCodeFromRegistry() {
  * @returns {string|null}
  */
 function findZCodeFromProcess() {
+  if (process.platform === "darwin") {
+    try {
+      const out = execSync("pgrep -x ZCode 2>/dev/null || true", { encoding: "utf8" }).trim();
+      if (out) {
+        // 用 ps 获取可执行路径
+        const pid = out.split("\n")[0].trim();
+        const path2 = execSync(`ps -p ${pid} -o comm= 2>/dev/null || true`, { encoding: "utf8" }).trim();
+        if (path2 && fs.existsSync(path2)) return path2;
+      }
+    } catch (_) {}
+    return null;
+  }
   try {
     const out = execSync(
       'powershell -NoProfile -Command "Get-Process ZCode -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -Unique"',
@@ -124,12 +136,27 @@ function findZCodeExe({ force = false } = {}) {
   for (const p of EXE_CANDIDATES) {
     try { if (fs.existsSync(p)) return (_exeCache = p); } catch (_) {}
   }
+  // 4) macOS：检查标准 .app 安装位置（无注册表，直接用候选路径兜底）
+  if (process.platform === "darwin") {
+    const macCandidates = [
+      "/Applications/ZCode.app/Contents/MacOS/ZCode",
+      path.join(os.homedir(), "Applications", "ZCode.app", "Contents", "MacOS", "ZCode"),
+    ];
+    for (const p of macCandidates) {
+      try { if (fs.existsSync(p)) return (_exeCache = p); } catch (_) {}
+    }
+  }
   return null;
 }
 
 // 异步检测 ZCode 是否在运行：用 exec 而非 execSync，避免冻结主进程事件循环
 // （状态每 8s 轮询一次，同步阻塞会造成 UI 周期性卡顿）。
 function isZCodeRunning() {
+  if (process.platform === "darwin") {
+    return new Promise((resolve) => {
+      try { execSync("pgrep -x ZCode > /dev/null 2>&1"); resolve(true); } catch { resolve(false); }
+    });
+  }
   return new Promise((resolve) => {
     try {
       exec('tasklist /FI "IMAGENAME eq ZCode.exe" /NH /FO CSV', { windowsHide: true }, (err, stdout) => {
@@ -141,9 +168,13 @@ function isZCodeRunning() {
 
 async function killZCode({ waitMs = 9000 } = {}) {
   if (!(await isZCodeRunning())) return true;
-  try {
-    execSync("taskkill /F /IM ZCode.exe", { windowsHide: true, stdio: "ignore" });
-  } catch (_) {}
+  if (process.platform === "darwin") {
+    try { execSync("pkill -x ZCode 2>/dev/null || true"); } catch (_) {}
+  } else {
+    try {
+      execSync("taskkill /F /IM ZCode.exe", { windowsHide: true, stdio: "ignore" });
+    } catch (_) {}
+  }
   const deadline = Date.now() + waitMs;
   while (Date.now() < deadline) {
     if (!(await isZCodeRunning())) return true;
@@ -153,6 +184,13 @@ async function killZCode({ waitMs = 9000 } = {}) {
 }
 
 function launchZCode() {
+  if (process.platform === "darwin") {
+    const appPath = "/Applications/ZCode.app";
+    const userAppPath = path.join(os.homedir(), "Applications", "ZCode.app");
+    const target = fs.existsSync(appPath) ? appPath : userAppPath;
+    spawn("open", [target], { detached: true, stdio: "ignore" }).unref();
+    return target;
+  }
   const exe = findZCodeExe();
   if (!exe) throw new Error(
     "未找到 ZCode 客户端。\n" +
